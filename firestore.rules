@@ -1,0 +1,26 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+    function signed(){ return request.auth != null && request.auth.token.email_verified == true; }
+    function owner(){ return signed() && request.auth.token.email == 'otaworld243@gmail.com'; }
+    function admin(){ return owner() || (signed() && exists(/databases/$(db)/documents/admins/$(request.auth.token.email))); }
+
+    // Équipe : seul le propriétaire gère la liste. Chacun peut seulement vérifier SA propre présence.
+    match /admins/{e} { allow get: if signed() && request.auth.token.email == e; allow list, write: if owner(); }
+
+    // Joueurs : le public peut seulement s'inscrire (statut "pending"), jamais lire.
+    match /players/{i} {
+      allow create: if request.resource.data.status == 'pending' && request.resource.data.xp == 0 && !('code' in request.resource.data);
+      allow read, update, delete: if admin();
+    }
+    match /codes/{c}    { allow read, write: if admin(); }
+    match /keys/{m}     { allow read, write: if admin(); }
+    match /members/{c}  { allow get: if true; allow list, write: if admin(); }
+    match /board/{b}    { allow read: if true; allow write: if admin(); }
+    match /missions/{m} { allow read: if true; allow write: if admin(); }
+    // Affiches et texte défilant : lisibles par tous, modifiables par les admins
+    match /posters/{p}  { allow read: if true; allow write: if admin(); }
+    match /settings/{s} { allow read: if true; allow write: if admin(); }
+    match /subs/{s}     { allow create: if request.resource.data.status == 'pending'; allow read, update, delete: if admin(); }
+  }
+}
