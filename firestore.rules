@@ -1,12 +1,15 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{db}/documents {
-    function signed(){ return request.auth != null && request.auth.token.email_verified == true; }
-    function owner(){ return signed() && request.auth.token.email == 'otaworld243@gmail.com'; }
-    function admin(){ return owner() || (signed() && exists(/databases/$(db)/documents/admins/$(request.auth.token.email))); }
+    // Les administrateurs se connectent par identifiant + mot de passe (email interne invisible).
+    function signed(){ return request.auth != null && request.auth.token.firebase.sign_in_provider == 'password' && request.auth.token.email.matches('.*@ota-admin[.]example[.]com'); }
+    function uname(){ return request.auth.token.email.split('@')[0]; }
+    function owner(){ return signed() && uname() == 'natheo'; }
+    function admin(){ return owner() || (signed() && exists(/databases/$(db)/documents/admins/$(uname()))); }
 
-    // Équipe : seul le propriétaire gère la liste. Chacun peut seulement vérifier SA propre présence.
-    match /admins/{e} { allow get: if signed() && request.auth.token.email == e; allow list, write: if owner(); }
+    // Équipe : seul le propriétaire gère la liste.
+    match /admins/{u} { allow get: if signed() && uname() == u; allow list, write: if owner(); }
+    match /adminTokens/{t} { allow read, write: if admin(); }
 
     // Joueurs : le public peut seulement s'inscrire (statut "pending"), jamais lire.
     match /players/{i} {
@@ -18,7 +21,6 @@ service cloud.firestore {
     match /members/{c}  { allow get: if true; allow list, write: if admin(); }
     match /board/{b}    { allow read: if true; allow write: if admin(); }
     match /missions/{m} { allow read: if true; allow write: if admin(); }
-    // Affiches et texte défilant : lisibles par tous, modifiables par les admins
     match /posters/{p}  { allow read: if true; allow write: if admin(); }
     match /settings/{s} { allow read: if true; allow write: if admin(); }
     match /subs/{s}     { allow create: if request.resource.data.status == 'pending'; allow read, update, delete: if admin(); }
