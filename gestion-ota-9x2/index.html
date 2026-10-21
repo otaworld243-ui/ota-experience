@@ -164,5 +164,5 @@ async function enableNotif(){try{
  const tk=await firebase.messaging().getToken({vapidKey:VAPID,serviceWorkerRegistration:reg});
  await C('adminTokens').doc(tk).set({user:ME,at:FV.serverTimestamp()});
  alert('🔔 Notifications activées sur cet appareil, même application fermée.')}catch(e){alert('Erreur : '+e.message)}}
-const VAPID='COLLEZ_ICI_LA_CLE_WEB_PUSH';
+const VAPID='BPQuNzNze7_TxDEDCLwLho6QlSRRy6cN9KzqSIQHKdomTeo0_goNLH4ZI6e9vCZ1dcoU96Tx5O6ngjxXNaMdBKc';
 </script></body></html>
