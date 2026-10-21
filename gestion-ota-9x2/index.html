@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
 <title>Administration</title>
+<link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="../admin-180.png"><link rel="icon" href="../admin-192.png"><meta name="theme-color" content="#06181b"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="OTA Admin">
 <style>
 :root{--bg:#06181b;--cd:#0e2a2d;--gold:#e8b94a;--gold2:#b8862b;--teal:#1f7a72;--pa:#f0dfb0;--tx:#f4ecd8;--mu:#9fb8b0}
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 50% -10%,#16474a,var(--bg) 62%) fixed;color:var(--tx);font:16px/1.5 system-ui,Segoe UI,Arial,sans-serif;min-height:100vh}
@@ -29,37 +30,39 @@ footer{text-align:center;padding:20px 16px 40px;color:var(--mu);font-size:14px}f
 <header><h1>OTAEXPERIENCE — ADMIN</h1></header>
 <main>
 <div id="cfgwarn" class="card er" hidden>⚠️ Firebase n'est pas configuré : remplacez FIREBASE_CONFIG.</div>
-<div id="adlog" class="card"><h2>Espace réservé à l'équipe</h2><p class="mu">Connecte-toi avec ton compte Google d'administrateur.</p><button onclick="gin()">Connexion Google</button><div class="m er" id="am"></div></div>
+<div id="adlog" class="card"><h2>Espace réservé à l'équipe</h2><label>Identifiant</label><input id="ae" autocomplete="username" autocapitalize="none"><label>Mot de passe</label><input id="ap" type="password" autocomplete="current-password"><button onclick="lin()">Se connecter</button><div class="m er" id="am"></div>
+<details><summary>Première installation</summary><p class="mu">À faire une seule fois : saisissez l'identifiant Natheo et le mot de passe voulu, puis cliquez ici.</p><button class="g" onclick="lup()">Créer le compte propriétaire</button></details></div>
 <div id="adm" hidden></div>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
 <script>
 // Même config Firebase que index.html
 const FIREBASE_CONFIG={apiKey:"AIzaSyC5SFPR4bToF7h7aSUnOGwsOnwKszLFiuk",authDomain:"otaexperience-2111d.firebaseapp.com",projectId:"otaexperience-2111d",storageBucket:"otaexperience-2111d.firebasestorage.app",messagingSenderId:"692441012930",appId:"1:692441012930:web:5a13d55d6bdaa8aefa795b"};
-const OWNER='otaworld243@gmail.com';let ROLE=null;
+const OWNER_ID='natheo',DOM='@ota-admin.example.com';let ROLE=null,ME='',NOTE='';
+const PW=p=>p+'#OTA26',EM=u=>u.trim().toLowerCase()+DOM,okU=u=>/^[a-z0-9._-]{3,20}$/.test(u);
 const CODES="X7K2 M9R5 Q4T8 B7N3 K8W6 R5X9 V2M7 T8Q4 Y6K3 P9W7 C4R8 H7T5 N8X2 W3K9 F6M8 J2Q7 L9T4 X5R8 Z7K6 D8W2 G4N9 M2X8 P7T3 R8K5 T6W9 V4Q2 Y8M7 K3R6 N7W4 X9T2 B5K8 C7M4 F8Q6 H3R9 J7W2 L4X8 P8K3 R2M7 T9Q5 V7R4 W8K2 Y3M9 Z6T7 D4Q8 G7R3 K9W5 M8X4 N3K7 P6R2 T7M8 V9Q4 X2W7 Y7K8 B4T6 C8R5 F2M9 H8W3 J4K7 L7Q2 N9R8 P3W6 R7K4 T2M8 V8X5 W4Q7 Y9T3 Z2K8 D7R6 G8M4 K4W9 M7Q3 N2T8 P8R4 R4K9 T7W6 V3M8 X8Q2 Y4R7 B9K5 C2W8 F7M3 H9Q6 J3R8 L8K4 N4W7 P9M2 R6Q8 T4K7 V7W3 X3M9 Y8R2 Z4Q7 D9K3 G2W8 K7M4 M4R9 N8Q3 P2K7 R9W4 T3M8".split(' ');
 const $=i=>document.getElementById(i),E=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const msg=(i,t,ok)=>{$(i).textContent=t;$(i).className='m '+(ok?'ok':'er')};
 if(FIREBASE_CONFIG.apiKey.startsWith('VOTRE'))$('cfgwarn').hidden=false;
 firebase.initializeApp(FIREBASE_CONFIG);const db=firebase.firestore(),auth=firebase.auth(),FV=firebase.firestore.FieldValue,C=n=>db.collection(n);
 auth.onAuthStateChanged(async u=>{
- if(!u){$('adlog').hidden=false;$('adm').hidden=true;return}
- const em=(u.email||'').toLowerCase();let ok=false;
- if(u.emailVerified){ok=em===OWNER;if(!ok)try{ok=(await C('admins').doc(em).get()).exists}catch(e){}}
- if(!ok){await auth.signOut();msg('am','Accès refusé : ce compte n\'est pas administrateur.');return}
- ROLE=em===OWNER?'owner':'admin';$('adlog').hidden=true;$('adm').hidden=false;adm('reg')});
+ if(!u){if(UNS){UNS();UNS=null}$('adlog').hidden=false;$('adm').hidden=true;return}
+ ME=(u.email||'').split('@')[0];let ok=(u.email||'').endsWith(DOM)&&ME===OWNER_ID;
+ if(!ok&&(u.email||'').endsWith(DOM))try{ok=(await C('admins').doc(ME).get()).exists}catch(e){}
+ if(!ok){await auth.signOut();msg('am',"Accès refusé : cet identifiant n'est pas administrateur.");return}
+ ROLE=ME===OWNER_ID?'owner':'admin';$('adlog').hidden=true;$('adm').hidden=false;adm('reg');watch()});
 // ====== ADMIN ======
-const gin=()=>auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(x=>msg('am',x.message));
-const tabs=t=>`<div class="card">${ROLE==='owner'?'<button onclick="adm(\'team\')">Équipe</button>':''}<button onclick="adm('reg')">Inscriptions</button><button onclick="adm('mis')">Missions</button><button onclick="adm('sub')">Réponses</button><button onclick="adm('cod')">Codes</button><button onclick="adm('site')">Affiches & rappel</button><button onclick="adm('cards')">Cartes</button><button class="g" onclick="auth.signOut()">Déconnexion</button></div>`;
-async function adm(t){const el=$('adm');el.innerHTML=tabs()+'<div id="ad"></div>';const A=$('ad');
+const tabs=t=>`<div class="card">${ROLE==='owner'?'<button onclick="adm(\'team\')">Équipe</button>':''}<button onclick="adm('reg')">Inscriptions<span id="pc" class="tag" style="margin-left:6px" hidden></span></button><button onclick="adm('mis')">Missions</button><button onclick="adm('sub')">Réponses</button><button onclick="adm('cod')">Codes</button><button onclick="adm('site')">Affiches & rappel</button><button onclick="adm('cards')">Cartes</button><button class="g" onclick="adm('me')">Mon compte</button><button class="g" onclick="enableNotif()">🔔 Notifications</button><button class="g" onclick="auth.signOut()">Déconnexion</button></div>`;
+async function adm(t){const el=$('adm');el.innerHTML=tabs()+'<div id="ad"></div>';const A=$('ad');CUR=t;upd();
  if(t==='reg'){const s=await C('players').orderBy('createdAt','desc').limit(200).get();A.innerHTML=s.docs.map(d=>{const p=d.data(),w=p.whatsapp.replace(/\D/g,'').replace(/^0/,'243'),tx=`Bonjour ${p.pseudo} ! Ton inscription à OtaExperience 2026 est validée ✅\nTon ID d'aventurier : ${p.code}\nConnecte-toi sur ${location.origin.replace('null','')}${location.pathname} avec cet ID.`;
   return `<div class="card">${p.photo?`<img src="${p.photo}" style="width:60px;height:60px;border-radius:50%;object-fit:cover;float:right">`:''}<b>${E(p.pseudo)}</b> — ${E(p.nom)} <span class="tag">${p.status==='valid'?E(p.code):'en attente'}</span><div class="mu">${E(p.email)} · ${E(p.whatsapp)} · ${E(p.commune)} · ${p.age} ans<br>Réf. paiement : <b>${E(p.ref)}</b></div>`+
   (p.status==='pending'?`<button onclick="val('${d.id}')">✅ Valider & attribuer un ID</button><button class="r" onclick="if(confirm('Supprimer ?'))C('players').doc('${d.id}').delete().then(()=>adm('reg'))">Supprimer</button>`:`<a class="b" target="_blank" href="https://wa.me/${w}?text=${encodeURIComponent(tx)}">💬 WhatsApp</a><a class="b" href="mailto:${E(p.email)}?subject=${encodeURIComponent('Ton ID OtaExperience')}&body=${encodeURIComponent(tx)}">✉️ Email</a>`)+'</div>'}).join('')||'<div class="card mu">Aucune inscription.</div>'}
  if(t==='cod'){const s=await C('codes').get(),u=s.docs.filter(d=>d.data().used).length;A.innerHTML=`<div class="card"><h2>Codes d'aventurier</h2>${s.size} importés · ${u} attribués · ${s.size-u} libres<br><br><button onclick="seed()">Importer les ${CODES.length} codes</button><div class="m" id="sm"></div></div>`}
- if(t==='site')site(A);if(t==='cards')cards(A);if(t==='mis')mis(A);if(t==='sub')subs(A);if(t==='team'&&ROLE==='owner')team(A)}
+ if(t==='site')site(A);if(t==='me')acct(A);if(t==='cards')cards(A);if(t==='mis')mis(A);if(t==='sub')subs(A);if(t==='team'&&ROLE==='owner')team(A)}
 async function seed(){const b=db.batch(),ex=new Set((await C('codes').get()).docs.map(d=>d.id));let n=0;[...new Set(CODES)].forEach(c=>{const id='OTA-'+c;if(!ex.has(id)){b.set(C('codes').doc(id),{used:false});n++}});await b.commit();msg('sm',n+' codes ajoutés.',1)}
 async function val(id){const un=await C('codes').where('used','==',false).get();if(un.empty)return alert('Plus aucun code libre !');const cr=un.docs[Math.floor(Math.random()*un.size)].ref,pr=C('players').doc(id);
  try{await db.runTransaction(async t=>{const[c,p]=await Promise.all([t.get(cr),t.get(pr)]);if(c.data().used||p.data().status!=='pending')throw Error('Conflit, réessayez.');const bid=C('board').doc().id,pd=p.data();
@@ -85,8 +88,9 @@ async function subs(A){const s=await C('subs').where('status','==','pending').ge
 async function sval(id,code,mid,xp){const mr=C('members').doc(code),m=await mr.get();if(!(m.data().done||[]).includes(mid)){const b=db.batch();b.update(mr,{xp:FV.increment(xp),done:FV.arrayUnion(mid)});b.update(C('board').doc(m.data().bid),{xp:FV.increment(xp)});await b.commit()}
  await C('subs').doc(id).update({status:'ok'});adm('sub')}
 
-async function team(A){const s=await C('admins').get();A.innerHTML=`<div class="card"><h2>👥 Équipe d'administration</h2><p class="mu">Seuls les comptes Google listés ici (et vous, propriétaire) peuvent ouvrir cette page. Tous les autres restent de simples joueurs.</p><input id="te" type="email" placeholder="email.google@gmail.com"><button onclick="tadd()">Ajouter un administrateur</button><div class="m" id="tm"></div></div><div class="card"><b>${OWNER}</b> <span class="tag">propriétaire</span></div>`+s.docs.map(d=>`<div class="card"><b>${E(d.id)}</b> <span class="tag">admin</span> <button class="r" onclick="if(confirm('Retirer cet administrateur ?'))C('admins').doc('${E(d.id)}').delete().then(()=>adm('team'))">Retirer</button></div>`).join('')}
-async function tadd(){const e=$('te').value.trim().toLowerCase();if(!/^\S+@\S+\.\S+$/.test(e))return msg('tm','Email invalide.');await C('admins').doc(e).set({email:e,at:FV.serverTimestamp()});adm('team')}
+async function team(A){const s=await C('admins').get();A.innerHTML=`<div class="card"><h2>👥 Équipe d'administration</h2><p class="mu">Vous créez l’identifiant et le mot de passe, puis vous les communiquez à la personne. Elle pourra changer son mot de passe dans « Mon compte ».</p><label>Identifiant (lettres, chiffres, 3 à 20)</label><input id="tu" autocapitalize="none"><label>Mot de passe</label><input id="tp" type="text"><button onclick="tadd()">Ajouter l'administrateur</button><div class="m" id="tm"></div></div><div class="card"><b>${E(OWNER_ID)}</b> <span class="tag">propriétaire</span></div>`+s.docs.map(d=>`<div class="card"><b>${E(d.id)}</b> <span class="tag">admin</span> <button class="r" onclick="if(confirm('Retirer ${E(d.id)} ?'))C('admins').doc('${E(d.id)}').delete().then(()=>adm('team'))">Retirer</button></div>`).join('')+'<p class="mu">Retirer un administrateur coupe son accès immédiatement. Pour réutiliser son identifiant : Firebase > Authentication > Utilisateurs > supprimer le compte.</p>';if(NOTE){msg('tm',NOTE,1);NOTE=''}}
+async function tadd(){const u=$('tu').value.trim().toLowerCase(),p=$('tp').value;if(!okU(u))return msg('tm','Identifiant invalide (lettres, chiffres, . _ - ; 3 à 20 signes).');if(u===OWNER_ID)return msg('tm','Identifiant réservé.');if(p.length<4)return msg('tm','Mot de passe : 4 caractères minimum.');
+ let sec;try{sec=firebase.initializeApp(FIREBASE_CONFIG,'sec'+Date.now());await sec.auth().createUserWithEmailAndPassword(EM(u),PW(p));await sec.auth().signOut();await C('admins').doc(u).set({at:FV.serverTimestamp()});NOTE='✅ Ajouté. Communiquez-lui : identifiant « '+u+' » et mot de passe « '+p+' ».';adm('team')}catch(x){msg('tm',aerr(x))}finally{if(sec)sec.delete()}}
 // ====== AFFICHES & RAPPEL DÉFILANT ======
 const DEFTK="📢 RAPPEL : pour accéder à l'espace de la chasse au trésor le 19 décembre 2026, un paiement de 15 000 CDF est requis (en plus des 5 000 FC d'inscription).  ✦  Rejoins l'aventure, récupère les fragments, ouvre le portail !";
 async function site(A){const[ps,tk]=await Promise.all([C('posters').orderBy('o').get(),C('settings').doc('ticker').get()]);
@@ -138,4 +142,27 @@ async function csave(){CFG={title:$('ct').value,event:$('ce').value,note:$('cn')
 async function syncCards(){const b=db.batch();CP.forEach(p=>b.update(C('members').doc(p.code),{nom:p.nom||'',commune:p.commune||'',photo:p.photo||''}));await b.commit();msg('sy','✅ '+CP.length+' cartes mises à jour.',1)}
 async function pall(){const w=window.open('','_blank');if(!w)return alert('Autorisez les fenêtres pop-up pour imprimer.');w.document.write('<p>Préparation des cartes…</p>');const im=[];for(const p of CP){const c=document.createElement('canvas');await drawCard(c,p,CFG,CARD_LOGO);im.push(c.toDataURL('image/png'))}
  w.document.open();w.document.write('<style>@page{margin:8mm}body{margin:0}img{width:86mm;margin:2mm;break-inside:avoid}</style>'+im.map(u=>'<img src="'+u+'">').join(''));w.document.close();setTimeout(()=>w.print(),700)}
+// ====== CONNEXION IDENTIFIANT / MOT DE PASSE ======
+let UNS=null,PEND=0,CUR='reg';
+const aerr=e=>({'auth/invalid-credential':'Identifiant ou mot de passe incorrect.','auth/wrong-password':'Mot de passe incorrect.','auth/user-not-found':'Identifiant inconnu.','auth/email-already-in-use':'Cet identifiant est déjà utilisé.','auth/invalid-email':'Identifiant invalide (lettres, chiffres, . _ - ; 3 à 20 signes).','auth/operation-not-allowed':"La connexion par email/mot de passe n'est pas activée dans Firebase (Authentication > Méthode de connexion).",'auth/too-many-requests':'Trop de tentatives, réessayez dans quelques minutes.','auth/requires-recent-login':'Reconnectez-vous puis réessayez.'}[e.code]||e.message);
+async function lin(){const u=$('ae').value.trim().toLowerCase(),p=$('ap').value;if(!okU(u)||!p)return msg('am','Entrez votre identifiant et votre mot de passe.');try{await auth.signInWithEmailAndPassword(EM(u),PW(p))}catch(x){msg('am',aerr(x))}}
+async function lup(){const u=$('ae').value.trim().toLowerCase(),p=$('ap').value;if(u!==OWNER_ID)return msg('am','Seul le compte propriétaire (Natheo) se crée ici.');if(p.length<4)return msg('am','Mot de passe : 4 caractères minimum.');try{await auth.createUserWithEmailAndPassword(EM(u),PW(p))}catch(x){msg('am',aerr(x))}}
+$('ap').onkeydown=e=>{if(e.key==='Enter')lin()};
+function acct(A){A.innerHTML=`<div class="card"><h2>👤 Mon compte</h2><p>Identifiant : <b>${E(ME)}</b> <span class="tag">${ROLE==='owner'?'propriétaire':'admin'}</span></p><label>Mot de passe actuel</label><input id="po" type="password"><label>Nouveau mot de passe (plus il est long, mieux c’est)</label><input id="pn" type="password"><button onclick="chpw()">Changer mon mot de passe</button><div class="m" id="pm"></div></div>`}
+async function chpw(){const o=$('po').value,n=$('pn').value;if(n.length<4)return msg('pm','4 caractères minimum.');const u=auth.currentUser;try{await u.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(u.email,PW(o)));await u.updatePassword(PW(n));msg('pm','✅ Mot de passe modifié.',1)}catch(x){msg('pm',aerr(x))}}
+// ====== NOTIFICATIONS D'INSCRIPTION ======
+function upd(){const b=$('pc');if(b){b.hidden=!PEND;b.textContent=PEND}document.title=(PEND?'('+PEND+') ':'')+'Admin OtaExperience';try{PEND?navigator.setAppBadge&&navigator.setAppBadge(PEND):navigator.clearAppBadge&&navigator.clearAppBadge()}catch(e){}}
+function beep(){try{const a=new(window.AudioContext||window.webkitAudioContext)(),o=a.createOscillator(),g=a.createGain();o.connect(g);g.connect(a.destination);o.frequency.value=880;g.gain.setValueAtTime(.2,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+.6);o.start();o.stop(a.currentTime+.6)}catch(e){}}
+async function sys(t,b){if(!('Notification' in window)||Notification.permission!=='granted')return;try{const r=await navigator.serviceWorker.getRegistration();if(r)return r.showNotification(t,{body:b,icon:'../admin-192.png',tag:'ota-reg'})}catch(e){}try{new Notification(t,{body:b})}catch(e){}}
+function toast(t){const d=document.createElement('div');d.textContent=t;d.style.cssText='position:fixed;left:12px;right:12px;top:12px;z-index:99;background:#a8322c;color:#fff;border:1px solid #e8b94a;border-radius:12px;padding:14px;font-weight:800;text-align:center;box-shadow:0 6px 24px #000a';d.onclick=()=>{d.remove();adm('reg')};document.body.appendChild(d);setTimeout(()=>d.remove(),9000)}
+function watch(){if(UNS)return;let first=true;UNS=C('players').where('status','==','pending').onSnapshot(s=>{PEND=s.size;upd();if(!first)s.docChanges().forEach(c=>{if(c.type==='added'){const p=c.doc.data();toast('🔔 Nouvelle inscription : '+p.pseudo);beep();sys('Nouvelle inscription OtaExperience',p.pseudo+' — '+p.commune);if(CUR==='reg')adm('reg')}});first=false},e=>console.log(e))}
+async function enableNotif(){try{
+ if(!('Notification' in window)||!('serviceWorker' in navigator)||!firebase.messaging.isSupported())return alert("Notifications indisponibles ici. Sur iPhone : ajoutez d'abord l'espace admin à l'écran d'accueil, puis ouvrez-le depuis l'icône.");
+ if(VAPID.startsWith('COLLEZ'))return alert('Clé Web Push manquante dans admin/index.html (voir le guide).');
+ if(await Notification.requestPermission()!=='granted')return alert('Notifications refusées : autorisez-les dans les réglages.');
+ const reg=await navigator.serviceWorker.register('firebase-messaging-sw.js');await navigator.serviceWorker.ready;
+ const tk=await firebase.messaging().getToken({vapidKey:VAPID,serviceWorkerRegistration:reg});
+ await C('adminTokens').doc(tk).set({user:ME,at:FV.serverTimestamp()});
+ alert('🔔 Notifications activées sur cet appareil, même application fermée.')}catch(e){alert('Erreur : '+e.message)}}
+const VAPID='COLLEZ_ICI_LA_CLE_WEB_PUSH';
 </script></body></html>
