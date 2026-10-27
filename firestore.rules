@@ -1,28 +1,69 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{db}/documents {
-    // Les administrateurs se connectent par identifiant + mot de passe (email interne invisible).
-    function signed(){ return request.auth != null && request.auth.token.firebase.sign_in_provider == 'password' && request.auth.token.email.matches('.*@ota-admin[.]example[.]com'); }
+    // --- Identités : administrateurs et joueurs se connectent par identifiant + mot de passe ---
+    function authed(){ return request.auth != null && request.auth.token.firebase.sign_in_provider == 'password'; }
+    function isAdm(){ return authed() && request.auth.token.email.matches('.*@ota-admin[.]example[.]com'); }
+    function isPl(){ return authed() && request.auth.token.email.matches('.*@ota-joueur[.]example[.]com'); }
     function uname(){ return request.auth.token.email.split('@')[0]; }
-    function owner(){ return signed() && uname() == 'natheo'; }
-    function admin(){ return owner() || (signed() && exists(/databases/$(db)/documents/admins/$(uname()))); }
+    function owner(){ return isAdm() && uname() == 'natheo'; }
+    function admin(){ return owner() || (isAdm() && exists(/databases/$(db)/documents/admins/$(uname()))); }
 
-    // Équipe : seul le propriétaire gère la liste.
-    match /admins/{u} { allow get: if signed() && uname() == u; allow list, write: if owner(); }
+    // --- Outils pour les missions ---
+    function mis(m){ return get(/databases/$(db)/documents/missions/$(m)).data; }
+    function inTime(m){ return mis(m).get('starts', 0) <= request.time.toMillis() && mis(m).get('ends', 9999999999999) >= request.time.toMillis(); }
+    function mine(code){ return get(/databases/$(db)/documents/members/$(code)).data.uid == request.auth.uid; }
+    function attOk(d){
+      let a = get(/databases/$(db)/documents/attempts/$(d.code + '_' + d.mid)).data;
+      return a.uid == request.auth.uid && a.status == 'started'
+        && request.time.toMillis() <= a.started.toMillis() + mis(d.mid).get('limitMin', 1440) * 60000 + 30000;
+    }
+
+    // --- Équipe ---
+    match /admins/{u} { allow get: if isAdm() && uname() == u; allow list, write: if owner(); }
     match /adminTokens/{t} { allow read, write: if admin(); }
 
-    // Joueurs : le public peut seulement s'inscrire (statut "pending"), jamais lire.
+    // --- Inscriptions : un joueur connecté peut créer SA demande (statut "pending") ; jamais la lire ---
     match /players/{i} {
-      allow create: if request.resource.data.status == 'pending' && request.resource.data.xp == 0 && !('code' in request.resource.data);
+      allow create: if admin() || (isPl() && request.resource.data.uid == request.auth.uid && request.resource.data.status == 'pending' && request.resource.data.xp == 0 && !('code' in request.resource.data));
       allow read, update, delete: if admin();
     }
-    match /codes/{c}    { allow read, write: if admin(); }
-    match /keys/{m}     { allow read, write: if admin(); }
-    match /members/{c}  { allow get: if true; allow list, write: if admin(); }
-    match /board/{b}    { allow read: if true; allow write: if admin(); }
+    match /codes/{c}   { allow read, write: if admin(); }
+    match /keys/{m}    { allow read, write: if admin(); }
+    match /xplog/{l}   { allow read, write: if admin(); }
+    match /pwresets/{u} { allow read, write: if admin(); }
+
+    // --- Profil joueur : visible uniquement par son propriétaire ---
+    match /members/{c} { allow get: if admin() || (isPl() && resource.data.uid == request.auth.uid); allow list, write: if admin(); }
+    match /logins/{c}  { allow get: if true; allow list, write: if admin(); }
+    match /board/{b}   { allow read: if true; allow write: if admin(); }
+
+    // --- Missions : énoncé public ; questions réservées aux joueurs connectés ---
     match /missions/{m} { allow read: if true; allow write: if admin(); }
+    match /qbank/{m}    { allow get: if isPl() || admin(); allow list, write: if admin(); }
+
+    // --- Tentatives (une seule par joueur et par mission « sur le site ») ---
+    match /attempts/{a} {
+      allow read: if admin() || (isPl() && resource.data.uid == request.auth.uid);
+      allow create: if admin() || (isPl() && request.resource.data.uid == request.auth.uid
+        && request.resource.data.status in ['started', 'submitted']
+        && a == request.resource.data.code + '_' + request.resource.data.mid
+        && mine(request.resource.data.code) && inTime(request.resource.data.mid));
+      allow update: if admin() || (isPl() && resource.data.uid == request.auth.uid && resource.data.status == 'started'
+        && request.resource.data.status in ['closed', 'submitted']
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'ended']));
+      allow delete: if admin();
+    }
+
+    // --- Réponses : refusées après la date limite ou si la mission a été fermée ---
+    match /subs/{s} {
+      allow create: if admin() || (isPl() && request.resource.data.uid == request.auth.uid && request.resource.data.status == 'pending'
+        && mine(request.resource.data.code) && inTime(request.resource.data.mid)
+        && (mis(request.resource.data.mid).get('mode', 'ext') == 'ext' || attOk(request.resource.data)));
+      allow read, update, delete: if admin();
+    }
+
     match /posters/{p}  { allow read: if true; allow write: if admin(); }
     match /settings/{s} { allow read: if true; allow write: if admin(); }
-    match /subs/{s}     { allow create: if request.resource.data.status == 'pending'; allow read, update, delete: if admin(); }
   }
 }
