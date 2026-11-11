@@ -10,6 +10,7 @@ header nav{padding-bottom:8px}h1,h2{font-family:Georgia,'Times New Roman',serif}
 main{max-width:720px;margin:0 auto;padding:16px}.card{background:linear-gradient(160deg,#0f3033,#0b2225);border:1px solid #e8b94a40;border-radius:14px;padding:16px;margin:0 0 14px;box-shadow:0 6px 24px #0006}
 input,select,textarea{width:100%;padding:11px;margin:4px 0 10px;border-radius:10px;border:1px solid #e8b94a30;background:#08201f;color:var(--tx);font:inherit}
 label{font-size:13px;color:var(--mu)}label.ck{display:flex;gap:8px;align-items:flex-start;font-size:14px;color:var(--tx)}label.ck input{width:auto;margin-top:4px}
+.scr{max-height:68vh;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-right:4px}.prow{display:flex;gap:10px;align-items:center}.rk{width:40px;text-align:center;font-weight:900;font-size:18px;color:var(--gold);flex:none}.pa{width:42px;height:42px;border-radius:50%;object-fit:cover;background:#0b2a2d;border:2px solid var(--gold);display:grid;place-items:center;font-weight:800;color:var(--gold);flex:none}.xpb{font:900 20px Georgia,serif;color:var(--gold);text-align:right;flex:none}.xpb small{display:block;font:700 11px system-ui;color:var(--mu)}details>summary{cursor:pointer;color:var(--pa);font-weight:700;margin:6px 0}
 button{background:linear-gradient(180deg,#f3cd6a,var(--gold2));color:#2a1c06;border:0;border-radius:10px;padding:10px 16px;font:inherit;font-weight:800;cursor:pointer;margin:2px 4px 2px 0}
 button.g{background:#ffffff14;color:var(--tx);font-weight:700}button.r{background:#a8322c;color:#fff}a.b{display:inline-block;background:#ffffff14;color:var(--tx);border-radius:10px;padding:10px 14px;text-decoration:none;margin:2px 4px 2px 0;font-weight:700}
 .m{font-size:14px;margin:6px 0;min-height:1em}.ok{color:#5dffb0}.er{color:#ff8a8a}.mu{color:var(--mu);font-size:14px}
@@ -56,14 +57,14 @@ auth.onAuthStateChanged(async u=>{
  if(!ok){await auth.signOut();msg('am',"Accès refusé : cet identifiant n'est pas administrateur.");return}
  ROLE=ME===OWNER_ID?'owner':'admin';$('adlog').hidden=true;$('adm').hidden=false;adm('reg');watch()});
 // ====== ADMIN ======
-const tabs=t=>`<div class="card">${ROLE==='owner'?'<button onclick="adm(\'team\')">Équipe</button>':''}<button onclick="adm('reg')">Inscriptions<span id="pc" class="tag" style="margin-left:6px" hidden></span></button><button onclick="adm('pl')">Joueurs & points</button><button onclick="adm('mis')">Missions & quêtes</button><button onclick="adm('sub')">Réponses à corriger</button><button onclick="adm('cod')">Codes</button><button onclick="adm('site')">Médias, événements & rappel</button><button onclick="adm('cards')">Cartes</button><button onclick="adm('set')">Paramètres</button><button class="g" onclick="adm('me')">Mon compte</button><button class="g" onclick="enableNotif()">🔔 Notifications</button><button class="g" onclick="auth.signOut()">Déconnexion</button></div>`;
+const tabs=t=>`<div class="card">${ROLE==='owner'?'<button onclick="adm(\'team\')">Équipe</button>':''}<button onclick="adm('reg')">Inscriptions<span id="pc" class="tag" style="margin-left:6px" hidden></span></button><button onclick="adm('pl')">Joueurs & points</button><button onclick="adm('rank')">🏆 Classement</button><button onclick="adm('mis')">Missions & quêtes</button><button onclick="adm('sub')">Réponses à corriger</button><button onclick="adm('cod')">Codes</button><button onclick="adm('site')">Médias, événements & rappel</button><button onclick="adm('cards')">Cartes</button><button onclick="adm('set')">Paramètres</button><button class="g" onclick="window.open('../index.html?apercu=1','_blank')">👁 Aperçu joueur</button><button class="g" onclick="adm('me')">Mon compte</button><button class="g" onclick="enableNotif()">🔔 Notifications</button><button class="g" onclick="auth.signOut()">Déconnexion</button></div>`;
 async function adm(t){const el=$('adm');el.innerHTML=tabs()+'<div id="ad"></div>';const A=$('ad');CUR=t;upd();
  if(t==='reg'){await loadMsg();const[s,cd]=await Promise.all([C('players').orderBy('createdAt','desc').limit(200).get(),C('codes').where('used','==',false).get()]);FREE=cd.docs.map(d=>d.id).sort();
   A.innerHTML=s.docs.map(d=>{const p=d.data(),tx=msgFor(p);
   return `<div class="card">${p.photo?`<img src="${p.photo}" style="width:60px;height:60px;border-radius:50%;object-fit:cover;float:right">`:''}<b>${E(p.pseudo)}</b> — ${E(p.nom)} <span class="tag">${p.status==='valid'?E(p.code):'en attente'}</span><div class="mu">📱 ${E(p.whatsapp)} · ${E(p.commune)} · ${p.age} ans<br>Réf. paiement : <b>${E(p.ref)}</b>${p.refBy?`<br>Parrain : <b>${E(p.refBy)}</b>`:''}</div>`+
   (p.status==='pending'?`<label>ID à attribuer</label><select id="sel_${d.id}"><option value="">🎲 Au hasard</option>${FREE.map(c=>`<option>${c}</option>`).join('')}</select><button onclick="val('${d.id}')">✅ Valider & attribuer l'ID</button><button class="r" onclick="if(confirm('Supprimer ?'))C('players').doc('${d.id}').delete().then(()=>adm('reg'))">Supprimer</button>`:`<a class="b" target="_blank" href="https://wa.me/${waNum(p.whatsapp)}?text=${encodeURIComponent(tx)}">💬 WhatsApp</a>`)+'</div>'}).join('')||'<div class="card mu">Aucune inscription.</div>'}
  if(t==='cod'){const s=await C('codes').get(),u=s.docs.filter(d=>d.data().used).length;A.innerHTML=`<div class="card"><h2>Codes d'aventurier</h2>${s.size} importés · ${u} attribués · ${s.size-u} libres<br><br><button onclick="seed()">Importer les ${CODES.length} codes</button><div class="m" id="sm"></div></div>`}
- if(t==='site')site(A);if(t==='pl')pl(A);if(t==='me')acct(A);if(t==='set')setg(A);if(t==='cards')cards(A);if(t==='mis')mis(A);if(t==='sub')subs(A);if(t==='team'&&ROLE==='owner')team(A)}
+ if(t==='site')site(A);if(t==='pl')pl(A);if(t==='rank')clas(A);if(t==='me')acct(A);if(t==='set')setg(A).then(()=>{if(ROLE==='owner')resetCard(A)});if(t==='cards')cards(A);if(t==='mis')mis(A);if(t==='sub')subs(A);if(t==='team'&&ROLE==='owner')team(A)}
 async function seed(){const b=db.batch(),ex=new Set((await C('codes').get()).docs.map(d=>d.id));let n=0;[...new Set(CODES)].forEach(c=>{const id='OTA-'+c;if(!ex.has(id)){b.set(C('codes').doc(id),{used:false});n++}});await b.commit();msg('sm',n+' codes ajoutés.',1)}
 let FREE=[];
 const waNum=w=>String(w||'').replace(/\D/g,'').replace(/^0/,'243'),rid=()=>[...crypto.getRandomValues(new Uint8Array(8))].map(b=>b.toString(16).padStart(2,'0')).join('');
@@ -264,17 +265,52 @@ async function ssave(){const t=$('sm').value.trim(),t2=$('sm2').value.trim(),u=$
  await Promise.all([C('settings').doc('msg').set({text:t,text2:t2,url:u,at:FV.serverTimestamp()}),C('settings').doc('rules').set({refXp:+$('sr').value||0})]);MSG={text:t,text2:t2,url:u};msg('sx','✅ Enregistré.',1)}
 function srst(){$('sm').value=DEF_MSG;$('sm2').value=DEF_MSG2;$('su').value=DEF_URL;$('sr').value=20;prev();msg('sx','Valeurs par défaut remises : cliquez sur Enregistrer pour les garder.',1)}
 
-// ====== JOUEURS & POINTS ======
+// ====== REMISE À ZÉRO (propriétaire) ======
+function resetCard(A){A.insertAdjacentHTML('beforeend',`<div class="card" style="border-color:#a8322c"><h2>🧹 Remise à zéro (données d'essai)</h2><p class="mu">Supprime définitivement les données de test. Les missions, affiches, événements, réglages et comptes administrateurs sont conservés.</p>
+<label class="ck"><input type="checkbox" id="rz1" checked> Inscriptions et joueurs (inscriptions, profils, connexions, classement, historique des points)</label>
+<label class="ck"><input type="checkbox" id="rz2" checked> Réponses et tentatives aux missions</label>
+<label class="ck"><input type="checkbox" id="rz3" checked> Remettre les ${new Set(CODES).size} codes d'aventurier à « libres »</label>
+<label>Tape RESET pour confirmer</label><input id="rz" autocapitalize="characters" autocomplete="off"><button class="r" onclick="resetAll()">Tout remettre à zéro</button><div class="m" id="rzm"></div></div>`)}
+async function wipeColl(n){let k=0;for(;;){const s=await C(n).limit(400).get();if(s.empty)break;const b=db.batch();s.docs.forEach(d=>b.delete(d.ref));await b.commit();k+=s.size}return k}
+async function resetAll(){if(ROLE!=='owner')return;if($('rz').value.trim().toUpperCase()!=='RESET')return msg('rzm','Tape RESET pour confirmer.');
+ if(!$('rz1').checked&&!$('rz2').checked&&!$('rz3').checked)return msg('rzm','Coche au moins une case.');
+ if(!confirm('Dernière confirmation : supprimer définitivement ces données ?'))return;
+ msg('rzm','Suppression en cours… ne ferme pas la page.',1);const out=[];
+ try{if($('rz1').checked)for(const n of ['players','members','logins','board','xplog','pwresets'])out.push(n+' : '+await wipeColl(n));
+  if($('rz2').checked)for(const n of ['subs','attempts'])out.push(n+' : '+await wipeColl(n));
+  if($('rz3').checked){const ex=await C('codes').get(),ids=[...new Set([...CODES.map(c=>'OTA-'+c),...ex.docs.map(d=>d.id)])];
+   for(let i=0;i<ids.length;i+=400){const b=db.batch();ids.slice(i,i+400).forEach(c=>b.set(C('codes').doc(c),{used:false}));await b.commit()}out.push(ids.length+' codes libres')}
+  PEND=0;upd();msg('rzm','✅ Terminé · '+out.join(' · '),1)}catch(x){msg('rzm','Erreur : '+x.message)}}
+// ====== JOUEURS & POINTS : liste complète défilante ======
 let PL=[];
-async function pl(A){const[ms,cd,lg]=await Promise.all([C('members').get(),C('codes').where('used','==',false).get(),C('xplog').orderBy('at','desc').limit(30).get()]);
- FREE=cd.docs.map(d=>d.id).sort();PL=ms.docs.map(d=>({code:d.id,...d.data()})).sort((x,y)=>y.xp-x.xp);
- A.innerHTML=`<div class="card"><h2>➕ Ajouter un joueur manuellement</h2><p class="mu">Pour les inscriptions déjà faites à la main : choisissez l'ID que vous lui avez déjà donné (liste des ID encore libres).</p>
+const ttl=x=>x>=900?'👑 Maître d’Ôta':x>=500?'🛡️ Chasseur':x>=200?'⚔️ Aventurier':'🌱 Explorateur';
+const pav=p=>p.photo?`<img class="pa" src="${E(p.photo)}" alt="">`:`<div class="pa">${E((p.pseudo||'?')[0].toUpperCase())}</div>`;
+async function pl(A){const[ms,pp,cd,lg]=await Promise.all([C('members').get(),C('players').orderBy('createdAt','desc').limit(500).get(),C('codes').where('used','==',false).get(),C('xplog').orderBy('at','desc').limit(30).get()]);
+ FREE=cd.docs.map(d=>d.id).sort();
+ const inscr={},wait=[];pp.docs.forEach(d=>{const p=d.data();if(p.status==='valid'&&p.code)inscr[p.code]=p;else if(p.status!=='valid')wait.push({pid:d.id,...p})});
+ const mem=ms.docs.map(d=>({code:d.id,...d.data()})).sort((x,y)=>(y.xp||0)-(x.xp||0)||String(x.pseudo).localeCompare(String(y.pseudo)));
+ let r=0,last=null;mem.forEach((p,i)=>{if(p.xp!==last){r=i+1;last=p.xp}p.r=r;p.ins=inscr[p.code]||{};p.kind='m'});
+ PL=[...mem,...wait.map(p=>({...p,kind:'p'}))];const tot=mem.reduce((a,p)=>a+(+p.xp||0),0);
+ A.innerHTML=`<div class="card"><h2>⭐ Joueurs & points</h2><div><span class="tag">${mem.length} joueur${mem.length>1?'s':''} validé${mem.length>1?'s':''}</span> <span class="tag">${wait.length} en attente</span> <span class="tag">${tot} XP au total</span></div>
+ <input id="ps" placeholder="Rechercher un ID, un pseudo, un nom, un numéro, une commune…" oninput="plf()"><select id="pf" onchange="plf()"><option value="all">Tous les inscrits (${PL.length})</option><option value="m">Joueurs validés (${mem.length})</option><option value="p">En attente de validation (${wait.length})</option></select>
+ <p class="mu" id="plc"></p><div class="scr" id="pll"></div></div>
+ <details class="card"><summary><b>➕ Ajouter un joueur manuellement</b></summary><p class="mu">Pour les inscriptions déjà faites à la main : choisissez l'ID que vous lui avez déjà donné (liste des ID encore libres).</p>
  <label>Nom complet</label><input id="mn"><label>Pseudo</label><input id="mp"><label>Numéro WhatsApp</label><input id="mw" type="tel"><div class="row"><div><label>Commune</label><input id="mc"></div><div><label>Âge</label><input id="ma" type="number"></div></div>
  <label>ID attribué</label><select id="mi">${FREE.map(c=>`<option>${c}</option>`).join('')}</select><label>Mot de passe provisoire</label><input id="mpw" value="${1000+Math.floor(Math.random()*9000)}"><label>ID du parrain (facultatif)</label><input id="mpa" placeholder="OTA-XXXX"><label>Points de départ</label><input id="mx0" type="number" value="50">
- <button onclick="madd()">Créer le joueur</button><div class="m" id="mm2"></div></div>
- <div class="card"><h2>⭐ Joueurs & points (${PL.length})</h2><input id="ps" placeholder="Rechercher un ID, un pseudo, un nom…" oninput="plf()"><div id="pll"></div></div>
+ <button onclick="madd()">Créer le joueur</button><div class="m" id="mm2"></div></details>
  <div class="card"><h2>🧾 Historique des points</h2>${lg.docs.map(d=>{const x=d.data();return `<div class="mu">${x.delta>0?'+':''}${x.delta} XP · <b>${E(x.pseudo)}</b> (${E(x.code)}) · ${E(x.reason)}</div>`}).join('')||'<div class="mu">Rien pour le moment.</div>'}</div>`;plf()}
-function plf(){const q=($('ps').value||'').toLowerCase();$('pll').innerHTML=PL.filter(p=>(p.code+p.pseudo+(p.nom||'')).toLowerCase().includes(q)).map(p=>`<div class="card" style="margin:8px 0"><b>${E(p.pseudo)}</b> <span class="tag">${E(p.code)}</span> <span class="tag">${p.xp} XP</span><div class="mu">${E(p.nom||'')}</div><div class="row"><input id="d_${p.code}" type="number" placeholder="± points (ex : 30 ou -10)"><input id="r_${p.code}" placeholder="Raison"></div><button onclick="pts('${p.code}')">Appliquer les points</button><button class="g" onclick="rpw('${p.code}')">🔑 Nouveau mot de passe</button></div>`).join('')||'<div class="mu">Aucun joueur.</div>'}
+function plf(){const q=($('ps').value||'').toLowerCase(),f=$('pf').value,
+ L=PL.filter(p=>(f==='all'||p.kind===f)&&[p.code,p.pseudo,p.nom,p.whatsapp,p.commune,p.ins&&p.ins.whatsapp,p.ins&&p.ins.commune].join(' ').toLowerCase().includes(q));
+ $('plc').textContent=L.length+' affiché'+(L.length>1?'s':'')+' · fais défiler la liste ↓';
+ $('pll').innerHTML=L.map(p=>{if(p.kind==='p')return `<div class="card prow" style="margin:8px 0">${pav(p)}<div style="flex:1;min-width:0"><b>${E(p.pseudo)}</b> <span class="tag">⏳ en attente</span><div class="mu">${E(p.nom||'')} · 📱 ${E(p.whatsapp||'')} · ${E(p.commune||'')}${p.age?' · '+p.age+' ans':''}</div><button class="g" onclick="adm('reg')">Aller valider dans « Inscriptions »</button></div></div>`;
+  const i=p.ins||{},wa=p.whatsapp||i.whatsapp,co=p.commune||i.commune,ag=p.age||i.age;
+  return `<div class="card" style="margin:8px 0"><div class="prow"><div class="rk">${p.r<=3?['🥇','🥈','🥉'][p.r-1]:'#'+p.r}</div>${pav(p)}<div style="flex:1;min-width:0"><b>${E(p.pseudo)}</b> <span class="tag">${E(p.code)}</span> <span class="tag">${p.xp||0} XP</span><div class="mu">${ttl(p.xp||0)} · ${E(p.nom||'')}${co?' · '+E(co):''}${ag?' · '+ag+' ans':''}${wa?' · 📱 '+E(wa):''}</div></div></div>
+  <details><summary>Gérer les points / le mot de passe</summary><div class="row"><input id="d_${p.code}" type="number" placeholder="± points (ex : 30 ou -10)"><input id="r_${p.code}" placeholder="Raison"></div><button onclick="pts('${p.code}')">Appliquer les points</button><button class="g" onclick="rpw('${p.code}')">🔑 Nouveau mot de passe</button></details></div>`}).join('')||'<div class="mu">Aucun joueur.</div>'}
+// ====== CLASSEMENT ======
+async function clas(A){const ms=await C('members').get(),L=ms.docs.map(d=>({code:d.id,...d.data()})).sort((x,y)=>(y.xp||0)-(x.xp||0)||String(x.pseudo).localeCompare(String(y.pseudo)));
+ let r=0,last=null;L.forEach((p,i)=>{if(p.xp!==last){r=i+1;last=p.xp}p.r=r});const tot=L.reduce((a,p)=>a+(+p.xp||0),0);
+ A.innerHTML=`<div class="card"><h2>🏆 Classement des joueurs</h2><div><span class="tag">${L.length} joueur${L.length>1?'s':''}</span> <span class="tag">${tot} XP au total</span></div><p class="mu">Même ordre que celui des joueurs. Les ex æquo partagent la même place.</p><button class="g" onclick="adm('rank')">🔄 Actualiser</button></div>
+ <div class="card"><div class="scr">${L.map(p=>`<div class="prow" style="padding:8px 0;border-bottom:1px solid #ffffff14"><div class="rk">${p.r<=3?['🥇','🥈','🥉'][p.r-1]:'#'+p.r}</div>${pav(p)}<div style="flex:1;min-width:0"><b>${E(p.pseudo)}</b> <span class="tag">${E(p.code)}</span><div class="mu">${ttl(p.xp||0)}${p.commune?' · '+E(p.commune):''}</div></div><div class="xpb">${p.xp||0}<small>XP</small></div></div>`).join('')||'<div class="mu">Aucun joueur validé pour le moment.</div>'}</div></div>`}
 async function pts(code){const dl=+$('d_'+code).value,why=$('r_'+code).value.trim()||'Ajustement manuel';if(!dl)return;const mr=C('members').doc(code),m=await mr.get(),b=db.batch();
  b.update(mr,{xp:FV.increment(dl)});b.update(C('board').doc(m.data().bid),{xp:FV.increment(dl)});b.set(C('xplog').doc(),{code,pseudo:m.data().pseudo,delta:dl,reason:why,by:ME,at:FV.serverTimestamp()});await b.commit();adm('pl')}
 async function rpw(code){const p=prompt('Nouveau mot de passe provisoire pour '+code+' (4 caractères minimum) :');if(!p||p.length<4)return;const m=await C('members').doc(code).get();
