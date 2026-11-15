@@ -12,7 +12,8 @@ service cloud.firestore {
     // --- Outils pour les missions ---
     function mis(m){ return get(/databases/$(db)/documents/missions/$(m)).data; }
     function inTime(m){ return mis(m).get('starts', 0) <= request.time.toMillis() && mis(m).get('ends', 9999999999999) >= request.time.toMillis(); }
-    function mine(code){ return get(/databases/$(db)/documents/members/$(code)).data.uid == request.auth.uid; }
+    // Compte du joueur ET non banni : un joueur banni ne peut plus ouvrir de mission ni envoyer de réponse
+    function mine(code){ let m = get(/databases/$(db)/documents/members/$(code)).data; return m.uid == request.auth.uid && !m.get('banned', false); }
     function attOk(d){
       let a = get(/databases/$(db)/documents/attempts/$(d.code + '_' + d.mid)).data;
       return a.uid == request.auth.uid && a.status == 'started'
@@ -25,8 +26,20 @@ service cloud.firestore {
 
     // --- Inscriptions : un joueur connecté peut créer SA demande (statut "pending") ; jamais la lire ---
     match /players/{i} {
-      allow create: if admin() || (isPl() && request.resource.data.uid == request.auth.uid && request.resource.data.status == 'pending' && request.resource.data.xp == 0 && !('code' in request.resource.data));
+      allow create: if admin() || (isPl() && request.resource.data.uid == request.auth.uid && request.resource.data.status == 'pending' && request.resource.data.xp == 0 && !('code' in request.resource.data)
+        // Inscription seulement avec un lien d'invitation (envoyé après paiement), à usage unique, consommé dans la même opération
+        && request.resource.data.inv is string && exists(/databases/$(db)/documents/invites/$(request.resource.data.inv))
+        && get(/databases/$(db)/documents/invites/$(request.resource.data.inv)).data.get('used', false) == false
+        && getAfter(/databases/$(db)/documents/invites/$(request.resource.data.inv)).data.get('usedBy', '') == request.auth.uid);
       allow read, update, delete: if admin();
+    }
+    // --- Invitations : l'admin crée un lien après paiement ; le futur joueur le consomme une seule fois ---
+    match /invites/{t} {
+      allow get: if true;
+      allow list, create, delete: if admin();
+      allow update: if admin() || (isPl() && resource.data.get('used', false) == false && request.resource.data.used == true
+        && request.resource.data.usedBy == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['used', 'usedBy', 'usedAt', 'usedPseudo']));
     }
     match /codes/{c}   { allow read, write: if admin(); }
     match /keys/{m}    { allow read, write: if admin(); }
