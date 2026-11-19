@@ -76,6 +76,25 @@ service cloud.firestore {
       allow read, update, delete: if admin();
     }
 
+    // --- Chat des joueurs : salon commun. Lecture : joueurs connectés et équipe. ---
+    // Écrire : joueur non banni, non mis en sourdine, avec son vrai pseudo, chat ouvert, 300 caractères max.
+    function chatOn(){ return !exists(/databases/$(db)/documents/settings/chat) || get(/databases/$(db)/documents/settings/chat).data.get('on', true); }
+    function canChat(d){
+      let m = get(/databases/$(db)/documents/members/$(d.code)).data;
+      return m.uid == request.auth.uid && !m.get('banned', false) && !m.get('muted', false) && m.pseudo == d.pseudo;
+    }
+    match /chat/{c} {
+      allow read: if isPl() || admin();
+      allow create: if admin() || (isPl() && chatOn()
+        && request.resource.data.keys().hasOnly(['uid', 'code', 'pseudo', 'text', 'at'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 300
+        && request.resource.data.at == request.time
+        && canChat(request.resource.data));
+      allow update: if false;
+      allow delete: if admin() || (isPl() && resource.data.uid == request.auth.uid);
+    }
+
     match /posters/{p}  { allow read: if true; allow write: if admin(); }
     match /settings/{s} { allow read: if true; allow write: if admin(); }
   }
